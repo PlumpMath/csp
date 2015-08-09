@@ -1,6 +1,6 @@
 (ns csp.mockup
   (:require [clojure.core.async :as async :refer :all
-             :exclude [map into reduce merge partition partition-by take]]
+             :exclude [map into reduce merge partition partition-by take timeout]]
             [org.httpkit.client :as http]))
 
 (defn report-error [response]
@@ -19,7 +19,7 @@
 (defn crawler-with-timeout
   [url]
   (let [ch (chan)
-        t (timeout 10000)]
+        t (async/timeout 10000)]
     (do (go
           (alt!
             ch ([x] (println "Read" x "from channel"))
@@ -35,18 +35,20 @@
 
 ;;返回某一个页面的内容 超时则返回nil
 (defn eval-with-timeout
-  [func default]
+  [func timeout default]
   (let [ch (chan)]
     (retrive func ch)
-    (let [[result channel] (alts!! [ch (timeout 60000)])]
+    (let [[result channel] (alts!! [ch (async/timeout (* timeout 1000))])]
       (if result result default))))
 
 (def url "https://www.baidu.com/")
+(def timeout 60)
 
-(eval-with-timeout (fn [] (+ 1 2)) nil)
+(eval-with-timeout (fn [] (+ 1 2)) timeout nil)
 (eval-with-timeout (fn []
                      @(http/get url (fn [response]
                                       (if (= 200 (:status response))
                                         (:body response)
                                         (str "error retriving -> " url)))))
+                   timeout
                    nil)
