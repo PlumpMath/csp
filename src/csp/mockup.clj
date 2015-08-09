@@ -16,7 +16,6 @@
                         (report-error response)
                         (close! ch)))))))
 
-;;返回某一个页面的内容 超时则返回nil
 (defn crawler-with-timeout
   [url]
   (let [ch (chan)
@@ -27,4 +26,27 @@
             t (println "Timed out")))
         (http-get-response ch url))))
 
-(crawler-with-timeout "https://www.baidu.com/")
+;;(crawler-with-timeout "https://www.baidu.com/")
+
+(defn retrive
+  [func ch]
+  (go (Thread/sleep (rand 100))
+      (>! ch (func))))
+
+;;返回某一个页面的内容 超时则返回nil
+(defn eval-with-timeout
+  [func default]
+  (let [ch (chan)]
+    (retrive func ch)
+    (let [[result channel] (alts!! [ch (timeout 60000)])]
+      (if result result default))))
+
+(def url "https://www.baidu.com/")
+
+(eval-with-timeout (fn [] (+ 1 2)) nil)
+(eval-with-timeout (fn []
+                     @(http/get url (fn [response]
+                                      (if (= 200 (:status response))
+                                        (:body response)
+                                        (str "error retriving -> " url)))))
+                   nil)
