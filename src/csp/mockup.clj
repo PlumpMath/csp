@@ -28,21 +28,26 @@
 
 ;;(crawler-with-timeout "https://www.baidu.com/")
 
-(defn retrive
+(defn retrive-go
   [func ch]
   (go (Thread/sleep (rand 100))
       (>! ch (func))))
+
+(defn retrive-thread
+  [func ch]
+  (thread (Thread/sleep (rand (* 30 1000)))
+      (>!! ch (func))))
 
 ;;返回某一个页面的内容 超时则返回nil
 (defn eval-with-timeout
   [func timeout default]
   (let [ch (chan)]
-    (retrive func ch)
+    (retrive-thread func ch)
     (let [[result channel] (alts!! [ch (async/timeout (* timeout 1000))])]
       (if result result default))))
 
 (def url "https://www.baidu.com/")
-(def timeout 60)
+(def timeout 10)
 
 (eval-with-timeout (fn [] (+ 1 2)) timeout nil)
 (eval-with-timeout (fn []
